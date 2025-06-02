@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Database</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+        /* Header styling */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: white; /* White background */
+            color: #333; /* Dark text color */
+            padding: 10px 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* Bottom shadow */
+            position: fixed;
+            top: 0;
+            width: 100%;
+            z-index: 1000;
+        }
+        header .title {
+            font-size: 20px;
+            font-weight: bold;
+            margin: 0; /* Remove default margins for better alignment */
+        }
+        header .nav-link {
+            color: #007BFF; /* Blue navigation link */
+            text-decoration: none;
+            font-size: 16px;
+            padding: 5px 10px;
+            border-radius: 3px;
+            margin-right: 5%; /* Added spacing to the right */
+            transition: background-color 0.3s, color 0.3s;
+        }
+        header .nav-link:hover {
+            background-color: #f0f0f0; /* Light gray hover effect */
+            color: #0056b3; /* Darker blue on hover */
+        }
+        main {
+            text-align: center;
+            padding: 20px;
+            margin-top: 80px; /* Leave space for the fixed header */
+        }
+        table {
+            width: 80%;
+            margin: 20px auto;
+            border-collapse: collapse;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        table th, table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+        }
+        table th {
+            background-color: #f4f4f4;
+            font-weight: bold;
+        }
+        table tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        table tr:hover {
+            background-color: #f1f1f1;
+        }
+        /* Highlighted row color */
+        .deleted-row {
+            background-color: #ffcccc;
+        }
+        .delete-btn {
+            color: red;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .delete-btn:hover {
+            color: darkred;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="title">Spoofing Detector</div>
+        <a href="/" class="nav-link">Home</a>
+    </header>
+    <main>
+        <h1>Database</h1>
+        <table>
+            <thead>
+                <tr>
+                    <th>Capture Image</th>
+                    <th>Result Image</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody id="record-table-body">
+                {% for record in records %}
+                <tr id="row-{{ record[0] }}">
+                    <td><img src="{{ record[1] }}" alt="Capture Image" width="150"></td>
+                    <td><img src="{{ record[2] }}" alt="Result Image" width="150"></td>
+                    <td><button class="delete-btn" onclick="deleteRow({{ record[0] }})">Delete</button></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>        
+    </main>
+
+    <script>
+        function deleteRow(id) {
+            if (confirm("Are you sure you want to delete this record?")) {
+                fetch(`/delete/${id}`, { method: 'DELETE' })
+                    .then(response => {
+                        if (response.ok) {
+                            const row = document.getElementById(`row-${id}`);
+                            row.classList.add("deleted-row");  // Add visual cue (color change) before deletion
+                            setTimeout(() => row.remove(), 1000);  // Remove the row after 1 second
+                        } else {
+                            alert("Error deleting record.");
+                        }
+                    })
+                    .catch(error => alert("Error deleting record."));
+            }
+        }
+    </script>
+</body>
+</html>

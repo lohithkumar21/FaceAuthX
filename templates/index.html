@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fake vs Real Detector</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+        /* Header styling */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: white; /* White background */
+            color: #333; /* Dark text color */
+            padding: 10px 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* Bottom shadow */
+            position: fixed;
+            top: 0;
+            width: 100%;
+            z-index: 1000;
+        }
+        header .title {
+            font-size: 20px;
+            font-weight: bold;
+            margin: 0; /* Remove default margins for better alignment */
+        }
+        header .nav-link {
+            color: #007BFF; /* Blue navigation link */
+            text-decoration: none;
+            font-size: 16px;
+            padding: 5px 10px;
+            border-radius: 3px;
+            margin-right:5%;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        header .nav-link:hover {
+            background-color: #f0f0f0; /* Light gray hover effect */
+            color: #0056b3; /* Darker blue on hover */
+        }
+        /* Main content styling */
+        main {
+            margin-top: 80px; /* Leave space for the fixed header */
+            text-align: center;
+        }
+        .container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 80%;
+            margin: 0 auto;
+        }
+        video {
+            border: 2px solid #ccc;
+            border-radius: 5px;
+            width: 48%;
+        }
+        img {
+            margin-top: 20px;
+            border: 2px solid #ccc;
+            border-radius: 5px;
+            width: 48%;
+        }
+        .button-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-left: 10px;
+        }
+        button {
+            padding: 10px 20px;
+            margin-top: 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            width: 100%;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .result-container {
+            margin-top: 20px;
+        }
+        .error {
+            color: red;
+            margin-top: 10px;
+        }
+        .loading {
+            font-style: italic;
+            color: #555;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="title">Spoofing Detector</div>
+        <a href="/database" class="nav-link">Database</a>
+    </header>
+
+    <main>
+        <h1>Fake vs Real Detector</h1>
+        
+        <!-- Container for webcam, processed image, and button -->
+        <div class="container">
+            <!-- Webcam display -->
+            <video id="webcam" autoplay></video>
+
+            <!-- Processed image and capture button in a column -->
+            <div class="button-container">
+                <div id="result" class="result-container">
+                    <h3>Processed Image</h3>
+                    <!-- Default GIF initially -->
+                    <img id="output" src="/static/uploads/default.gif" alt="Processed image will appear here">
+                    <p id="feedback" class="loading" style="display: none;">Processing, please wait...</p>
+                    <p id="error" class="error" style="display: none;"></p>
+                </div>
+                <!-- Capture button -->
+                <button id="captureButton" onclick="capture()">Capture</button>
+            </div>
+        </div>
+    </main>
+
+    <canvas id="canvas" style="display: none;"></canvas>
+
+    <script>
+        const video = document.getElementById('webcam');
+        const canvas = document.getElementById('canvas');
+        const output = document.getElementById('output');
+        const feedback = document.getElementById('feedback');
+        const error = document.getElementById('error');
+        const captureButton = document.getElementById('captureButton');
+
+        // Access the webcam
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then((stream) => {
+                video.srcObject = stream;
+            })
+            .catch((err) => {
+                console.error("Error accessing the webcam:", err);
+                error.textContent = "Unable to access the webcam. Please check your camera settings.";
+                error.style.display = "block";
+            });
+
+        // Capture image and send to backend
+        function capture() {
+            error.style.display = "none"; // Hide any previous errors
+            feedback.style.display = "block"; // Show processing feedback
+            feedback.textContent = "Processing, please wait...";
+            captureButton.disabled = true; // Disable the button to prevent multiple requests
+
+            const context = canvas.getContext('2d');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            const imageData = canvas.toDataURL('image/jpeg');
+            
+            fetch('/capture', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ image: imageData }),
+            })
+            .then((response) => {
+                if (!response.ok) {
+                    throw new Error('Failed to process the image.');
+                }
+                return response.json();
+            })
+            .then((data) => {
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                // Replace the default image with the processed result
+                output.src = data.output_image + "?t=" + new Date().getTime(); // Avoid caching
+                feedback.style.display = "none"; // Hide feedback
+            })
+            .catch((err) => {
+                console.error("Error processing image:", err);
+                feedback.style.display = "none"; // Hide feedback
+                error.textContent = err.message || "An error occurred while processing the image.";
+                error.style.display = "block";
+            })
+            .finally(() => {
+                captureButton.disabled = false;
+            });
+        }
+    </script>
+</body>
+</html>

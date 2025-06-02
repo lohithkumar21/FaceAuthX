@@ -1,0 +1,6 @@
+path: C:\Users\lohit.DESKTOP-57KU0RV\OneDrive\Documents\vscode\Face_Anti_Spoofing\Dataset\SplitData
+train: train/images
+val: val/images
+test: test/images
+nc: 2
+names: ['fake', 'real']
