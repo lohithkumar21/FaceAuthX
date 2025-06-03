@@ -7,7 +7,6 @@ from flask_cors import CORS
 from ultralytics import YOLO
 import cvzone
 from time import time, strftime, localtime
-from templates import corps
 
 # Configuration
 confidence = 0.6
@@ -58,40 +57,48 @@ def save_to_database(capture_path, result_path):
 
 
 def process_image(image_path):
-    """Processes the uploaded image using an external inference API and saves the output."""
-    img = cv2.imread(image_path)
+    """Processes the uploaded image using YOLO model and saves the output."""
     try:
-        results = model(img, stream=True, verbose=False)
-        predictions = results.get("predictions", [])
-        if not predictions:
-            raise Exception("No predictions found from Model.")
         img = cv2.imread(image_path)
-        for pred in predictions:
-            x1, y1, x2, y2 = map(int, [pred["x"] - pred["width"] // 2, 
-                                       pred["y"] - pred["height"] // 2,
-                                       pred["x"] + pred["width"] // 2,
-                                       pred["y"] + pred["height"] // 2])
-            conf = round(pred["confidence"], 2)
-            label = pred["class"]
-            color = (0, 255, 0) if label.lower() == "real" or label.lower() == "fake_real" else (0, 0, 255)
+        results = model(img)
+        if not results:
+            raise Exception("No results returned from model.")
+        result = results[0]
+        boxes = result.boxes
+        
+        if boxes is None or len(boxes) == 0:
+            raise Exception("No boxes detected.")
+
+        for box in boxes:
+            x1, y1, x2, y2 = map(int, box.xyxy[0])
+            conf = float(box.conf[0])
+            cls_id = int(box.cls[0])
+            label = classNames[cls_id] if cls_id < len(classNames) else f"class_{cls_id}"
+
+            color = (0, 255, 0) if label.lower() == "real" else (0, 0, 255)
             cvzone.cornerRect(img, (x1, y1, x2 - x1, y2 - y1), colorC=color, colorR=color)
-            cvzone.putTextRect(img, f'{label.upper()} {int(conf * 100)}%', 
-                               (max(0, x1), max(35, y1)), scale=2, thickness=4, colorR=color, colorB=color)
-            
+            cvzone.putTextRect(img, f'{label.upper()} {int(conf * 100)}%',
+                               (max(0, x1), max(35, y1)), scale=2, thickness=4,
+                               colorR=color, colorB=color)
+
+        # Save processed image
         output_path = os.path.join(UPLOAD_FOLDER, "output.jpg")
         cv2.imwrite(output_path, img)
 
+        # Save to database
         timestamp = int(time() * 1000)
         capture_path = os.path.join(DATABASE_FOLDER, f"{timestamp}_capture_image.jpg")
         result_path = os.path.join(DATABASE_FOLDER, f"{timestamp}_result_image.jpg")
-        cv2.imwrite(capture_path, cv2.imread(image_path)) 
-        cv2.imwrite(result_path, img) 
+        cv2.imwrite(capture_path, cv2.imread(image_path))
+        cv2.imwrite(result_path, img)
         save_to_database(capture_path, result_path)
 
         return output_path
+
     except Exception as e:
-        print(f"Error during API call or processing: {e}")
+        print(f"Error during image processing: {e}")
         raise
+
 
 
 @app.route("/")
